@@ -1,0 +1,186 @@
+﻿<Window x:Class="InterferenceInjectionTool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:oxy="http://oxyplot.org/wpf"
+        Title="IIT" Height="900" Width="1400"
+        WindowStartupLocation="CenterScreen">
+    <Grid Background="White">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Side Menu -->
+        <StackPanel Grid.Column="0" Width="150" Background="#ECECF4">
+            <Menu Background="Transparent" BorderThickness="0">
+                <MenuItem Header="Add Interference"/>
+                <MenuItem Header="Analyse"/>
+                <MenuItem Header="Export"/>
+            </Menu>
+            <Separator Margin="0,10"/>
+            <Button Content="Import Raw Signal" Height="30" Margin="5" Click="ImportCSVRawSignal"/>
+            <Button Content="Import Interference" Height="30" Margin="5" Click="ImportCSVInterferenceSignal"/>
+        </StackPanel>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Column="1" Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <!-- File path display -->
+                <RowDefinition Height="Auto"/>
+                <!-- Parameters -->
+                <RowDefinition Height="*"/>
+                <!-- Charts -->
+                <RowDefinition Height="Auto"/>
+                
+                <RowDefinition Height="Auto"/>
+                <!-- Navigation controls -->
+                <RowDefinition Height="Auto"/>
+                <!-- Status -->
+            </Grid.RowDefinitions>
+
+            <!-- File Path Display -->
+            <StackPanel Grid.Row="0">
+                <TextBlock x:Name="RawSignalPathTextBlock" Text="C:/Users/a893245/Downloads/HR13B_50_West_Transmit_11700.37_11754.39_DSP-WB-3.csv" 
+                           Foreground="Blue" TextDecorations="Underline" Margin="0,5"/>
+                <TextBlock x:Name="InterferencePathTextBlock" Text="C:/Users/a893245/Downloads/3_Cell_Phone_LTE_5Mbps.dat" 
+                           Foreground="Blue" TextDecorations="Underline" Margin="0,5"/>
+            </StackPanel>
+
+            <!-- Parameters -->
+            <WrapPanel Grid.Row="1" Margin="0,10">
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Interferer Spectrum Width:" VerticalAlignment="Center"/>
+                    <TextBox Width="40" Text="2" Margin="5,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Interferer Offset:" VerticalAlignment="Center"/>
+                    <TextBox x:Name="offsetField" Width="40" Text="-113" Margin="5,0" TextChanged="offsetField_TextChanged"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <RadioButton Content="Round Robin" GroupName="Mode" Margin="5,0"/>
+                    <RadioButton Content="One to all" GroupName="Mode" IsChecked="True" Margin="5,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Chunk number:" VerticalAlignment="Center"/>
+                    <TextBox Width="40" Text="1" Margin="5,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Presence matrix tolerance:" VerticalAlignment="Center"/>
+                    <TextBox Width="40" Text="0.1" Margin="5,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Interference type:" VerticalAlignment="Center"/>
+                    <ComboBox Width="150" Margin="5,0">
+                        <ComboBoxItem Content="Unknown Interference" IsSelected="True"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Interferer Center Frequency:" VerticalAlignment="Center"/>
+                    <TextBox Width="80" Text="11727.48" Margin="5,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="5,0">
+                    <TextBlock Text="Vector Length:" VerticalAlignment="Center"/>
+                    <TextBox x:Name="vectorLenghtField" Width="60" Text="200" Margin="5,0" TextChanged="vectorLenghtField_TextChanged"/>
+                </StackPanel>
+            </WrapPanel>
+
+            <!-- Charts -->
+            <Grid Grid.Row="2" Margin="0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Raw Signal Chart -->
+                <Border Grid.Column="0" BorderBrush="LightGray" BorderThickness="1" Margin="5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Raw Signal" FontWeight="Bold" HorizontalAlignment="Center" Margin="5"/>
+                        <oxy:PlotView Grid.Row="1" Model="{Binding RawSignalModel}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Interference Chart -->
+                <Border Grid.Column="1" BorderBrush="LightGray" BorderThickness="1" Margin="5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Interference" FontWeight="Bold" HorizontalAlignment="Center" Margin="5"/>
+                        <oxy:PlotView Grid.Row="1" Model="{Binding InterferenceSignalModel}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Preview Chart -->
+                <Border Grid.Column="2" BorderBrush="LightGray" BorderThickness="1" Margin="5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Preview" FontWeight="Bold" HorizontalAlignment="Center" Margin="5"/>
+                        <oxy:PlotView Grid.Row="1" Model="{Binding PreviewSignalModel}"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Navigation Controls -->
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Row="3" Grid.Column="0" Margin="0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Navigation for Raw Signal and Interference -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="&lt;" Width="40" Margin="5" Click="PreviousButtonRawSignal_Click"/>
+                        <TextBlock x:Name="pagingRawSignal" Text="0/0" VerticalAlignment="Center" Margin="5"/>
+                        <Button Content="&gt;" Width="40" Margin="5" Click="NextButtonRawSignal_Click"/>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="3" Grid.Column="1" Margin="0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Navigation for Raw Signal and Interference -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="&lt;" Width="40" Margin="5" Click="PreviousButtonInterference_Click"/>
+                        <TextBlock x:Name="pagingInterference" Text="0/0" VerticalAlignment="Center" Margin="5"/>
+                        <Button Content="&gt;" Width="40" Margin="5" Click="NextButtonInterference_Click"/>
+                    </StackPanel>
+                </Grid>
+
+            </Grid>
+            <!-- Preview and Export Buttons -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Preview" Width="100" Margin="10,0"/>
+                <Button Content="Export" Width="100" Margin="10,0" />
+            </StackPanel>
+            <!-- Status Bar -->
+            <Border Grid.Row="5" BorderBrush="LightGray" BorderThickness="0,1,0,0" Margin="0,10,0,0">
+                <TextBlock x:Name="statusTextBlock" Text="Ready" HorizontalAlignment="Center" Margin="0,5"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
