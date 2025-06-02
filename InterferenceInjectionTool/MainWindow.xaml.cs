@@ -18,7 +18,7 @@ namespace InterferenceInjectionTool
 
         private List<SignalData> signalDataList = new List<SignalData>();
         private List<SignalData> signalDataInterList = new List<SignalData>();
-        
+
         private int currentDataRawIndex = 0;
         private int totalRecordsRaw = 0;
         private int currentDataInterIndex = 0;
@@ -30,9 +30,12 @@ namespace InterferenceInjectionTool
         private int maxPointsToLoad = 1000;
         private int loadedPoints = 0;
 
+        private double spectrumWidthValue = 0;
+
+        private string interferenceFileName;
+
         private List<double> freqMid;
 
-        // PlotModels for the three charts
         public PlotModel RawSignalModel { get; private set; }
         public PlotModel InterferenceSignalModel { get; private set; }
         public PlotModel PreviewSignalModel { get; private set; }
@@ -41,10 +44,8 @@ namespace InterferenceInjectionTool
         {
             InitializeComponent();
 
-            // Initialize plot models
             SetupPlotModels();
 
-            // Set DataContext for binding
             DataContext = this;
         }
 
@@ -69,7 +70,7 @@ namespace InterferenceInjectionTool
                 IsPanEnabled = false,
                 IsZoomEnabled = false
             });
-            
+
             InterferenceSignalModel = new PlotModel();
             InterferenceSignalModel.Axes.Add(new LinearAxis
             {
@@ -150,6 +151,8 @@ namespace InterferenceInjectionTool
                     RawSignalPathTextBlock.Text = openFileDialog.FileName;
                     statusTextBlock.Text = "File loaded successfully";
 
+                    interferenceFileName = openFileDialog.FileName;
+
                     currentDataInterIndex = 0;
                     UpdateInterferenceChart();
                     UpdateInterferencePageDisplay();
@@ -199,7 +202,8 @@ namespace InterferenceInjectionTool
 
         private void LoadInterferenceSignalFile(string filePath)
         {
-            
+            signalDataInterList.Clear();
+
             double startFreqMHz = 11845.24;
             double centerFreqMHz = 11861.74;
             double stopStepMHz = 11878.24;
@@ -349,17 +353,16 @@ namespace InterferenceInjectionTool
         //    }
         //}
 
-        // User-defined offset value (in dB)
-        private double interfererOffsetDb = -113; // Controlled by the user
+        private double interfererOffsetDb = 100;
         private double centerFreq = 11846.24; //11852.00
-        double defaultInterferenceCenter = 11845.24; // Based on original data
+        double defaultInterferenceCenter = 11845.24;
 
 
         private void UpdateInterferenceChart()
         {
             double rangePower = 100;
-            double minPower = interfererOffsetDb - rangePower / 2; 
-            double maxPower = interfererOffsetDb + rangePower / 2;            
+            double minPower = interfererOffsetDb - rangePower / 2;
+            double maxPower = interfererOffsetDb + rangePower / 2;
 
             if (signalDataInterList.Count == 0)
                 return;
@@ -367,29 +370,19 @@ namespace InterferenceInjectionTool
             int pageCountInter = (int)Math.Ceiling((double)maxPointsToLoad / pageSize);
             currentPageInter = Math.Max(0, Math.Min(currentPageInter, pageCountInter - 1));
 
-            //int startIdx = currentPageInter * pageSize;
-            //int endIdx = Math.Min(startIdx + pageSize, maxPointsToLoad);
+            int startIdx = currentPageInter * pageSize;
+            int endIdx = Math.Min(startIdx + pageSize, maxPointsToLoad);
 
             var data = signalDataInterList;
 
-            //double freqStep = (double)(data[0].SegStopFreq - data[0].SegStartFreq) / (signalDataInterList.Count - 1);
+            data[0].SegStopFreq = data[0].SegStartFreq + spectrumWidthValue;
 
-            // Calculate the index corresponding to the target frequency
-            double freqStep = (double)(signalDataInterList[0].SegStopFreq - signalDataInterList[0].SegStartFreq) / (signalDataInterList.Count - 1);
-            int targetIndex = (int)((centerFreq - signalDataInterList[0].SegStartFreq) / freqStep);
-
-            // Clamp the index
-            targetIndex = Math.Max(0, Math.Min(targetIndex, signalDataInterList.Count - 1));
-
-            // Center the page around the target index
-            int halfPage = pageSize / 2;
-            int startIdx = Math.Max(0, targetIndex - halfPage);
-            int endIdx = Math.Min(startIdx + pageSize, signalDataInterList.Count);
-
-            // Update `currentPageInter` if you still want pagination tracking
-            currentPageInter = targetIndex;
+            double freqStep = (double)(data[0].SegStopFreq - data[0].SegStartFreq) / (signalDataInterList.Count - 1);
 
             int visibleCount = endIdx - startIdx;
+
+            double minFreq = data[0].SegStartFreq + startIdx * freqStep;
+            double maxFreq = data[0].SegStartFreq + (endIdx - 1) * freqStep;
 
             InterferenceSignalModel.Series.Clear();
             var interSeries = new LineSeries { Color = OxyColors.Blue, StrokeThickness = 1.5 };
@@ -400,8 +393,6 @@ namespace InterferenceInjectionTool
                     break;
 
                 int actualIndex = startIdx + i;
-                //double freqMHz = data[0].SegStartFreq + actualIndex * freqStep;
-
                 double freqMHz = data[0].SegStartFreq + actualIndex * freqStep;
 
                 double powerDb = ((double)data[actualIndex].PsdMeasurments) / (1e11);
@@ -413,9 +404,6 @@ namespace InterferenceInjectionTool
 
             InterferenceSignalModel.Series.Add(interSeries);
 
-            double rangeFreq = 0.05;
-            double minFreq = centerFreq - rangeFreq / 2;
-            double maxFreq = centerFreq + rangeFreq / 2;
 
             foreach (var model in new[] { InterferenceSignalModel })
             {
@@ -434,7 +422,6 @@ namespace InterferenceInjectionTool
                     Maximum = maxFreq
                 });
 
-                // Set fixed Y-axis limits (optional) or let them auto-adjust
                 model.Axes.Add(new LinearAxis
                 {
                     Position = AxisPosition.Left,
@@ -450,6 +437,28 @@ namespace InterferenceInjectionTool
 
                 model.InvalidatePlot(true);
             }
+        }
+
+        private void JumpToFrequency(double targetFrequencyMHz)
+        {
+            if (signalDataInterList == null || signalDataInterList.Count == 0)
+                return;
+
+            double freqStep = (double)(signalDataInterList[0].SegStopFreq - signalDataInterList[0].SegStartFreq) / (signalDataInterList.Count - 1);
+            int targetIndex = (int)Math.Round((targetFrequencyMHz - signalDataInterList[0].SegStartFreq) / freqStep);
+
+            if (targetIndex < 0 || targetIndex >= signalDataInterList.Count)
+            {
+                return;
+            }
+
+            currentPageInter = targetIndex / pageSize;
+
+            currentDataInterIndex = currentPageInter;
+
+            UpdateInterferencePageDisplay();
+
+            UpdateInterferenceChart();
         }
 
 
@@ -505,7 +514,7 @@ namespace InterferenceInjectionTool
         }
 
         private void PreviousButtonInterference_Click(object sender, RoutedEventArgs e)
-         {
+        {
             if (currentDataInterIndex > 0)
             {
                 currentPageInter--;
@@ -529,6 +538,35 @@ namespace InterferenceInjectionTool
         private void offsetField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
             interfererOffsetDb = int.Parse(offsetField.Text);
+            UpdateInterferenceChart();
+        }
+
+        private void TextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            if (double.TryParse(centerFrequencyField.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double targetFreqMHz))
+            {
+                JumpToFrequency(targetFreqMHz);
+            }
+            else
+            {
+                MessageBox.Show("Please enter a valid frequency.");
+            }
+        }
+
+        private void spectrumWidth_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            spectrumWidthValue = double.Parse(spectrumWidth.Text);
+            
+            if(interferenceFileName != null)
+            {
+                LoadInterferenceSignalFile(interferenceFileName);
+            }
+
+            loadedPoints = 0;
+            currentDataInterIndex = 0;
+            currentPageInter = 0;
+
+            UpdateInterferencePageDisplay();
             UpdateInterferenceChart();
         }
     }
