@@ -614,7 +614,9 @@ namespace InterferenceInjectionTool
 
         private void vectorLenghtField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            int.TryParse(vectorLenghtField.Text, out int result);
+            if (!int.TryParse(vectorLenghtField.Text, out int result))
+                result = 0;
+
             maxPointsToLoad = result;
             loadedPoints = 0;
             currentDataInterIndex = 0;
@@ -625,7 +627,10 @@ namespace InterferenceInjectionTool
 
         private void offsetField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            interfererOffsetDb = int.Parse(offsetField.Text);
+            if (!double.TryParse(offsetField.Text, out double result))
+                result = 0;
+
+            interfererOffsetDb = result;
             UpdateInterferenceChart();
         }
 
@@ -635,6 +640,11 @@ namespace InterferenceInjectionTool
             {
                 JumpToFrequency(targetFreqMHz);
             }
+            else if (string.IsNullOrWhiteSpace(centerFrequencyField.Text))
+            {
+                centerFreq = 0;
+                JumpToFrequency(centerFreq);
+            }
             else
             {
                 MessageBox.Show("Please enter a valid frequency.");
@@ -643,9 +653,12 @@ namespace InterferenceInjectionTool
 
         private void spectrumWidth_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            spectrumWidthValue = double.Parse(spectrumWidth.Text);
-            
-            if(interferenceFileName != null)
+            if (!double.TryParse(spectrumWidth.Text, out double result))
+                result = 0;
+
+            spectrumWidthValue = result;
+
+            if (interferenceFileName != null)
             {
                 LoadInterferenceSignalFile(interferenceFileName);
             }
