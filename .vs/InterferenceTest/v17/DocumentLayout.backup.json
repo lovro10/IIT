@@ -44,7 +44,11 @@
               "RelativeDocumentMoniker": "InterferenceInjectionTool\\MainWindow.xaml.cs",
               "ToolTip": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainWindow.xaml.cs",
               "RelativeToolTip": "InterferenceInjectionTool\\MainWindow.xaml.cs",
+<<<<<<< HEAD
+              "ViewState": "AgIAACoDAAAAAAAAAAAAAEQDAAA6AAAAAAAAAA==",
+=======
               "ViewState": "AgIAACwCAAAAAAAAAAApwJECAAAAAAAAAAAAAA==",
+>>>>>>> 250e644c1030dcda8109428e52eea2530969bb9a
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-04-24T21:31:28.661Z",
               "EditorCaption": ""

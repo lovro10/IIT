@@ -229,7 +229,7 @@ namespace InterferenceInjectionTool
 
                 if (double.TryParse(line.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out double value))
                 {
-                    signalData.PsdMeasurments = value;
+                    signalData.PsdMeasurments = -value;
                 }
 
                 signalDataInterList.Add(signalData);
@@ -670,6 +670,255 @@ namespace InterferenceInjectionTool
             UpdateInterferenceChart();
             UpdateInterferencePageDisplay();
         }
+
+
+
+        private void previewButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (PreviewSignalModel != null)
+            {
+                PreviewSignalModel.Series.Clear();
+            }
+            PreviewInjectedSignal("OneToAll");
+        }
+
+        private void PreviewInjectedSignal(string strategy)
+        {
+            if (signalDataList.Count == 0 || signalDataInterList.Count == 0)
+                return;
+
+            int cleanRowCount = signalDataList.Count;
+            int interferencePageCount = signalDataInterList.Count;
+
+            for (int rowIndex = 0; rowIndex < cleanRowCount; rowIndex++)
+            {
+                var cleanData = signalDataList[rowIndex];
+
+                // Select interference row
+                SignalData interferenceData;
+                if (strategy == "RoundRobin")
+                {
+                    interferenceData = signalDataInterList[rowIndex % interferencePageCount];
+                }
+                else if (strategy == "OneToAll")
+                {
+                    interferenceData = signalDataInterList[currentDataInterIndex]; // Use current visible page
+                }
+                else
+                {
+                    throw new ArgumentException("Unknown strategy: " + strategy);
+                }
+
+                // Setup frequency and power arrays
+                int interCount = maxPointsToLoad;
+                double interStep = (double)(interferenceData.SegStopFreq - interferenceData.SegStartFreq) / interCount;
+
+                double[] interFreqs = new double[interCount];
+                double[] interPowerDb = new double[interCount];
+
+                for (int i = 0; i < interCount; i++)
+                {
+                    interFreqs[i] = interferenceData.SegStartFreq + i * interStep;
+                    interPowerDb[i] = ((double)signalDataInterList[i].PsdMeasurments) / 1e11; // Scale if needed
+                }
+
+                // Clean signal setup
+                int cleanCount = cleanData.PsdMeasurements.Length;
+                double cleanStep = (double)(cleanData.SegStopFreq - cleanData.SegStartFreq) / (cleanCount - 1);
+
+                double[] cleanFreqs = new double[cleanCount];
+                for (int i = 0; i < cleanCount; i++)
+                    cleanFreqs[i] = cleanData.SegStartFreq + i * cleanStep;
+
+                // Interpolate interference to clean freq points
+                double[] interpInterPowerDb = new double[cleanCount];
+                for (int i = 0; i < cleanCount; i++)
+                    interpInterPowerDb[i] = InterpolateLinear(interFreqs, interPowerDb, cleanFreqs[i]);
+
+                // Combine in mW and convert back to dBm
+                double[] combinedDbm = new double[cleanCount];
+                for (int i = 0; i < cleanCount; i++)
+                {
+                    double cleanMw = DbmToMilliwatt(cleanData.PsdMeasurements[i]);
+                    double interMw = DbmToMilliwatt(interpInterPowerDb[i]);
+                    combinedDbm[i] = 10 * Math.Log10(cleanMw + interMw);
+                }
+
+                cleanData.PsdPreview = combinedDbm; // Store preview
+            }
+
+            UpdatePreviewChart(); // Show preview for currentDataRawIndex row
+        }
+
+
+        //private void PreviewInjectedSignal()
+        //{
+        //    if (signalDataList.Count == 0 || signalDataInterList.Count == 0)
+        //        return;
+
+        //    var cleanData = signalDataList[currentDataRawIndex];
+        //    var interferenceData = signalDataInterList[0];
+
+        //    int cleanCount = cleanData.PsdMeasurements.Length;
+
+        //    double freqStep = (double)(cleanData.SegStopFreq - cleanData.SegStartFreq) / (cleanCount - 1);
+
+        //    // Step 1: Build clean frequency axis
+        //    double[] cleanFreqs = new double[cleanCount];
+        //    for (int i = 0; i < cleanCount; i++)
+        //    {
+        //        cleanFreqs[i] = cleanData.SegStartFreq + i * freqStep;
+        //    }
+
+        //    // Step 2: Interference frequency and power values
+        //    int interCount = maxPointsToLoad;
+        //    double interStep = (double)(interferenceData.SegStopFreq - interferenceData.SegStartFreq) / interCount;
+
+        //    double[] interFreqs = new double[interCount];
+        //    double[] interPowerDb = new double[interCount];
+
+        //    for (int i = 0; i < interCount; i++)
+        //    {
+        //        interFreqs[i] = interferenceData.SegStartFreq + i * interStep;
+        //        interPowerDb[i] = ((double)signalDataInterList[i].PsdMeasurments) / (1e11);  // You may adjust scaling
+        //    }
+
+        //    // Step 3: Interpolate interference signal to clean frequency points
+        //    double[] interpInterPowerDb = new double[cleanCount];
+        //    for (int i = 0; i < cleanCount; i++)
+        //    {
+        //        interpInterPowerDb[i] = InterpolateLinear(interFreqs, interPowerDb, cleanFreqs[i]);
+        //    }
+
+        //    // Step 4: Combine signals in milliwatts
+        //    double[] combinedMilliwatts = new double[cleanCount];
+        //    for (int i = 0; i < cleanCount; i++)
+        //    {
+        //        double cleanMw = DbmToMilliwatt(cleanData.PsdMeasurements[i]);
+        //        double interMw = DbmToMilliwatt(interpInterPowerDb[i]);
+        //        combinedMilliwatts[i] = cleanMw + interMw;
+        //    }
+
+        //    // Step 5: Convert back to dBm
+        //    double[] combinedDbm = combinedMilliwatts.Select(mw => 10 * Math.Log10(mw)).ToArray();
+
+        //    // Step 6: Visualize on RawSignalModel
+        //    var previewSeries = new LineSeries { Color = OxyColors.Red, StrokeThickness = 1.5 };
+
+        //    for (int i = 0; i < combinedDbm.Length; i++)  // Downsample for speed
+        //    {
+        //        double freq = cleanFreqs[i];
+        //        double powerDb = combinedDbm[i];
+        //        previewSeries.Points.Add(new DataPoint(freq, powerDb));
+        //    }
+
+        //    PreviewSignalModel.Series.Add(previewSeries);
+        //    PreviewSignalModel.InvalidatePlot(true);
+        //}
+
+
+
+        private void UpdatePreviewChart()
+        {
+            if (signalDataList.Count == 0)
+                return;
+
+            var data = signalDataList[currentDataRawIndex];
+            if (data.PsdPreview == null || data.PsdPreview.Length == 0)
+                return;
+
+            int dataCount = data.PsdPreview.Length;
+            double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (dataCount - 1);
+
+            // Create series for combined preview signal
+            var combinedSeries = new LineSeries
+            {
+                Color = OxyColors.OrangeRed,
+                StrokeThickness = 1.5,
+                Title = "Combined Signal (Clean + Interference)"
+            };
+
+            for (int i = 0; i < dataCount; i += 4)
+            {
+                double freqMHz = data.SegStartFreq + i * freqStep;
+                double powerDb = data.PsdPreview[i];
+                combinedSeries.Points.Add(new DataPoint(freqMHz, powerDb));
+            }
+
+            // Clear previous series and axes
+            PreviewSignalModel.Series.Clear();
+            PreviewSignalModel.Series.Add(combinedSeries);
+
+            double minFreq = data.SegStartFreq;
+            double maxFreq = data.SegStopFreq;
+
+            double minPower = signalDataList[currentDataRawIndex].PsdMeasurements.Min();
+            double maxPower = signalDataList[currentDataRawIndex].PsdMeasurements.Max();
+
+            double powerPadding = (maxPower - minPower) * 0.1;
+            if (powerPadding == 0) powerPadding = 1;
+
+            double freqPadding = (maxFreq - minFreq) * 0.09;
+            if (freqPadding == 0) freqPadding = 1;
+
+            // Configure axes
+            PreviewSignalModel.Axes.Clear();
+            PreviewSignalModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Frequency(MHz)",
+                StringFormat = "F2",
+                MinorStep = 2,
+                MajorStep = 6,
+                Minimum = minFreq - freqPadding,
+                Maximum = maxFreq + freqPadding,
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray
+            });
+
+            PreviewSignalModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "Power(dB)",
+                StringFormat = "F1",
+                Minimum = minPower - powerPadding,
+                Maximum = maxPower + powerPadding,
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray
+            });
+
+            // Redraw
+            PreviewSignalModel.InvalidatePlot(true);
+        }
+
+
+
+
+
+
+
+        private double DbmToMilliwatt(double dbm)
+        {
+            return Math.Pow(10, dbm / 10.0);
+        }
+
+        private double InterpolateLinear(double[] x, double[] y, double xi)
+        {
+            if (xi <= x[0]) return y[0];
+            if (xi >= x[^1]) return y[^1];
+
+            for (int i = 0; i < x.Length - 1; i++)
+            {
+                if (x[i] <= xi && xi <= x[i + 1])
+                {
+                    double t = (xi - x[i]) / (x[i + 1] - x[i]);
+                    return y[i] + t * (y[i + 1] - y[i]);
+                }
+            }
+
+            return y[^1]; // fallback
+        }
+
     }
 
     public class SignalData
@@ -680,5 +929,6 @@ namespace InterferenceInjectionTool
         public int Count { get; set; }
         public double[] PsdMeasurements { get; set; }
         public double PsdMeasurments { get; set; }
+        public double[] PsdPreview { get; set; }
     }
 }
