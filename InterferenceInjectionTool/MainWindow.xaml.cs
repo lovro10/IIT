@@ -36,6 +36,12 @@ namespace InterferenceInjectionTool
 
         private List<double> freqMid;
 
+
+        private List<double> _frequencies = new List<double>();
+        private int _currentTimeStep = 0;
+        private List<List<double>> _timeStepsPsdValues = new List<List<double>>();
+
+
         public PlotModel RawSignalModel { get; private set; }
         public PlotModel InterferenceSignalModel { get; private set; }
         public PlotModel PreviewSignalModel { get; private set; }
@@ -51,7 +57,8 @@ namespace InterferenceInjectionTool
 
         private void SetupPlotModels()
         {
-            RawSignalModel = new PlotModel();
+            RawSignalModel = new PlotModel { PlotMargins = new OxyThickness(60, 40, 20, 40) };
+
             RawSignalModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
@@ -228,7 +235,10 @@ namespace InterferenceInjectionTool
                 signalDataInterList.Add(signalData);
 
                 totalRecordsInter++;
+                maxPointsToLoad++;
             }
+            int.TryParse(vectorLenghtField.Text, out int result);
+            maxPointsToLoad = maxPointsToLoad - result;
         }
 
         private int currentPageRaw = 0;
@@ -247,19 +257,30 @@ namespace InterferenceInjectionTool
             int endIdx = Math.Min(startIdx + pageSize, data.Count);
 
             totalRecordsRaw = data.PsdMeasurements.Length;
-
             int visibleCount = endIdx - startIdx;
 
             double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (data.Count - 1);
             RawSignalModel.Series.Clear();
             var rawSeries = new LineSeries { Color = OxyColors.Blue, StrokeThickness = 1.5 };
 
-            for (int i = 0; i < data.PsdMeasurements.Length / 4; i++)
+            double minPower = data.PsdMeasurements.Min();
+            double maxPower = data.PsdMeasurements.Max();
+
+            double minFreq = data.SegStartFreq;
+            double maxFreq = data.SegStopFreq;
+
+            for (int i = 0; i < data.PsdMeasurements.Length; i += 4)
             {
-                double freqMHz = (double)data.SegStartFreq + i * (double)freqStep;
-                double powerDb = (double)data.PsdMeasurements[i];
+                double freqMHz = data.SegStartFreq + i * freqStep;
+                double powerDb = data.PsdMeasurements[i];
                 rawSeries.Points.Add(new DataPoint(freqMHz, powerDb));
             }
+
+            double powerPadding = (maxPower - minPower) * 0.1;
+            if (powerPadding == 0) powerPadding = 1;
+
+            double freqPadding = (maxFreq - minFreq) * 0.09;
+            if (freqPadding == 0) freqPadding = 1;
 
             RawSignalModel.Series.Add(rawSeries);
 
@@ -271,24 +292,89 @@ namespace InterferenceInjectionTool
                     Position = AxisPosition.Bottom,
                     Title = "Frequency(MHz)",
                     StringFormat = "F2",
+                    MinorStep = 2,
+                    MajorStep = 6,
+                    Minimum = (double)minFreq - freqPadding,
+                    Maximum = (double)maxFreq + freqPadding,
                     MajorGridlineStyle = LineStyle.Solid,
                     MajorGridlineColor = OxyColors.LightGray,
-                    IsPanEnabled = false,
-                    IsZoomEnabled = false
+
                 });
                 model.Axes.Add(new LinearAxis
                 {
                     Position = AxisPosition.Left,
                     Title = "Power(dB)",
                     StringFormat = "F1",
+                    Minimum = minPower - powerPadding,
+                    Maximum = maxPower + powerPadding,
                     MajorGridlineStyle = LineStyle.Solid,
                     MajorGridlineColor = OxyColors.LightGray,
-                    IsPanEnabled = false,
-                    IsZoomEnabled = false
+                    
                 });
                 model.InvalidatePlot(true);
             }
         }
+
+
+        //private void UpdateRawSignalChart()
+        //{
+        //    if (signalDataList.Count == 0)
+        //        return;
+
+        //    int pageCountRaw = (int)Math.Ceiling((double)signalDataList.Count / pageSize);
+        //    currentPageRaw = Math.Max(0, Math.Min(currentPageRaw, pageCountRaw - 1));
+
+        //    var data = signalDataList[currentDataRawIndex];
+
+        //    int startIdx = currentPageRaw * pageSize;
+        //    int endIdx = Math.Min(startIdx + pageSize, data.Count);
+
+        //    totalRecordsRaw = data.PsdMeasurements.Length;
+
+        //    int visibleCount = endIdx - startIdx;
+
+        //    double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (data.Count - 1);
+        //    RawSignalModel.Series.Clear();
+        //    var rawSeries = new LineSeries { Color = OxyColors.Blue, StrokeThickness = 1.5 };
+
+        //    for (int i = 0; i < data.PsdMeasurements.Length - 200; i++)
+        //    {
+        //        double freqMHz = (double)data.SegStartFreq + i * (double)freqStep;
+        //        double powerDb = (double)data.PsdMeasurements[i];
+        //        rawSeries.Points.Add(new DataPoint(freqMHz, powerDb));
+        //    }
+
+        //    RawSignalModel.Series.Add(rawSeries);
+
+        //    foreach (var model in new[] { RawSignalModel })
+        //    {
+        //        model.Axes.Clear();
+        //        model.Axes.Add(new LinearAxis
+        //        {
+        //            Position = AxisPosition.Bottom,
+        //            Title = "Frequency(MHz)",
+        //            StringFormat = "F2",
+        //            MajorGridlineStyle = LineStyle.Solid,
+        //            MajorGridlineColor = OxyColors.LightGray,
+        //            IsPanEnabled = false,
+        //            IsZoomEnabled = false
+        //        });
+        //        model.Axes.Add(new LinearAxis
+        //        {
+        //            Position = AxisPosition.Left,
+        //            Title = "Power(dB)",
+        //            StringFormat = "F1",
+        //            MajorGridlineStyle = LineStyle.Solid,
+        //            MajorGridlineColor = OxyColors.LightGray,
+        //            IsPanEnabled = false,
+        //            IsZoomEnabled = false
+        //        });
+        //        model.InvalidatePlot(true);
+        //    }
+        //}
+
+
+
 
         //private void UpdateInterferenceChart()
         //{
@@ -354,7 +440,7 @@ namespace InterferenceInjectionTool
         //}
 
         private double interfererOffsetDb = 100;
-        private double centerFreq = 11846.24; //11852.00
+        private double centerFreq = 11846.24; //11852.00 //end 11878,24
         double defaultInterferenceCenter = 11845.24;
 
 
@@ -377,7 +463,7 @@ namespace InterferenceInjectionTool
 
             data[0].SegStopFreq = data[0].SegStartFreq + spectrumWidthValue;
 
-            double freqStep = (double)(data[0].SegStopFreq - data[0].SegStartFreq) / (signalDataInterList.Count - 1);
+            double freqStep = (double)(data[0].SegStopFreq - data[0].SegStartFreq) / (maxPointsToLoad);
 
             int visibleCount = endIdx - startIdx;
 
@@ -464,7 +550,7 @@ namespace InterferenceInjectionTool
 
         private void UpdateRawSignalPageDisplay()
         {
-            pagingRawSignal.Text = $"{currentDataRawIndex + 1}/{totalRecordsRaw}";
+            pagingRawSignal.Text = $"{currentDataRawIndex + 1}/{signalDataList.Count}";
         }
 
         private void UpdateInterferencePageDisplay()
@@ -477,22 +563,24 @@ namespace InterferenceInjectionTool
 
         private void PreviousButtonRawSignal_Click(object sender, RoutedEventArgs e)
         {
-            if (currentPageRaw > 0)
+            if (currentDataRawIndex > 0)
             {
                 currentPageRaw--;
                 currentDataRawIndex--;
                 UpdateRawSignalChart();
+                UpdateRawSignalPageDisplay();
             }
         }
 
         private void NextButtonRawSignal_Click(object sender, RoutedEventArgs e)
         {
             int pageCountRaw = (int)Math.Ceiling((double)signalDataList.Count / 1);
-            if (currentPageRaw < pageCountRaw - 1)
+            if (currentDataRawIndex < pageCountRaw - 1)
             {
                 currentPageRaw++;
                 currentDataRawIndex++;
                 UpdateRawSignalChart();
+                UpdateRawSignalPageDisplay();
             }
         }
 
@@ -531,8 +619,8 @@ namespace InterferenceInjectionTool
             loadedPoints = 0;
             currentDataInterIndex = 0;
             currentPageInter = 0;
-            UpdateInterferencePageDisplay();
             UpdateInterferenceChart();
+            UpdateInterferencePageDisplay();
         }
 
         private void offsetField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -566,8 +654,8 @@ namespace InterferenceInjectionTool
             currentDataInterIndex = 0;
             currentPageInter = 0;
 
-            UpdateInterferencePageDisplay();
             UpdateInterferenceChart();
+            UpdateInterferencePageDisplay();
         }
     }
 
