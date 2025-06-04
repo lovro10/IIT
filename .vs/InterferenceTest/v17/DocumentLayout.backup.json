@@ -1,17 +1,17 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\",
+  "WorkspaceRootPath": "C:\\Users\\Lovro\\Desktop\\IIT\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|c:\\users\\korisnik\\onedrive - algebra\\radna povr\u0161ina\\iit\\interferenceinjectiontool\\mainwindow.xaml.cs||{8B382828-6202-11D1-8870-0000F87579D2}|",
+      "AbsoluteMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|c:\\users\\lovro\\desktop\\iit\\interferenceinjectiontool\\mainwindow.xaml.cs||{8B382828-6202-11D1-8870-0000F87579D2}|",
       "RelativeMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|solutionrelative:interferenceinjectiontool\\mainwindow.xaml.cs||{8B382828-6202-11D1-8870-0000F87579D2}|"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|c:\\users\\korisnik\\onedrive - algebra\\radna povr\u0161ina\\iit\\interferenceinjectiontool\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "AbsoluteMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|c:\\users\\lovro\\desktop\\iit\\interferenceinjectiontool\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
       "RelativeMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|solutionrelative:interferenceinjectiontool\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|c:\\users\\korisnik\\onedrive - algebra\\radna povr\u0161ina\\iit\\interferenceinjectiontool\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|c:\\users\\lovro\\desktop\\iit\\interferenceinjectiontool\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D00928A9-BE83-493A-90C4-4900917CAD6C}|InterferenceInjectionTool\\InterferenceInjectionTool.csproj|solutionrelative:interferenceinjectiontool\\mainviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
@@ -28,27 +28,24 @@
               "$type": "Document",
               "DocumentIndex": 2,
               "Title": "MainViewModel.cs",
-              "DocumentMoniker": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainViewModel.cs",
+              "DocumentMoniker": "C:\\Users\\Lovro\\Desktop\\IIT\\InterferenceInjectionTool\\MainViewModel.cs",
               "RelativeDocumentMoniker": "InterferenceInjectionTool\\MainViewModel.cs",
-              "ToolTip": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainViewModel.cs",
+              "ToolTip": "C:\\Users\\Lovro\\Desktop\\IIT\\InterferenceInjectionTool\\MainViewModel.cs",
               "RelativeToolTip": "InterferenceInjectionTool\\MainViewModel.cs",
               "ViewState": "AgIAADcAAAAAAAAAAABBwBwAAAATAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-04-24T23:52:21.752Z"
+              "WhenOpened": "2025-04-24T23:52:21.752Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 0,
               "Title": "MainWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\Lovro\\Desktop\\IIT\\InterferenceInjectionTool\\MainWindow.xaml.cs",
               "RelativeDocumentMoniker": "InterferenceInjectionTool\\MainWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainWindow.xaml.cs",
-              "RelativeToolTip": "InterferenceInjectionTool\\MainWindow.xaml.cs",
-<<<<<<< HEAD
-              "ViewState": "AgIAACoDAAAAAAAAAAAAAEQDAAA6AAAAAAAAAA==",
-=======
-              "ViewState": "AgIAACwCAAAAAAAAAAApwJECAAAAAAAAAAAAAA==",
->>>>>>> 250e644c1030dcda8109428e52eea2530969bb9a
+              "ToolTip": "C:\\Users\\Lovro\\Desktop\\IIT\\InterferenceInjectionTool\\MainWindow.xaml.cs*",
+              "RelativeToolTip": "InterferenceInjectionTool\\MainWindow.xaml.cs*",
+              "ViewState": "AgIAAD0DAAAAAAAAAAAjwEYDAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-04-24T21:31:28.661Z",
               "EditorCaption": ""
@@ -57,12 +54,13 @@
               "$type": "Document",
               "DocumentIndex": 1,
               "Title": "MainWindow.xaml",
-              "DocumentMoniker": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Lovro\\Desktop\\IIT\\InterferenceInjectionTool\\MainWindow.xaml",
               "RelativeDocumentMoniker": "InterferenceInjectionTool\\MainWindow.xaml",
-              "ToolTip": "C:\\Users\\Korisnik\\OneDrive - Algebra\\Radna povr\u0161ina\\IIT\\InterferenceInjectionTool\\MainWindow.xaml",
+              "ToolTip": "C:\\Users\\Lovro\\Desktop\\IIT\\InterferenceInjectionTool\\MainWindow.xaml",
               "RelativeToolTip": "InterferenceInjectionTool\\MainWindow.xaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-04-24T16:47:05.988Z"
+              "WhenOpened": "2025-04-24T16:47:05.988Z",
+              "EditorCaption": ""
             }
           ]
         }
