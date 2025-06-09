@@ -10,6 +10,8 @@ using OxyPlot.Series;
 using OxyPlot.Axes;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
+using OxyPlot.Annotations;
 
 namespace InterferenceInjectionTool
 {
@@ -18,6 +20,8 @@ namespace InterferenceInjectionTool
 
         private List<SignalData> signalDataList = new List<SignalData>();
         private List<SignalData> signalDataInterList = new List<SignalData>();
+
+        private List<SignalData> signalDataInterListWithOffset = new List<SignalData>();
 
         private int currentDataRawIndex = 0;
         private int totalRecordsRaw = 0;
@@ -219,7 +223,6 @@ namespace InterferenceInjectionTool
 
             foreach (var line in File.ReadLines(filePath))
             {
-
                 var signalData = new SignalData
                 {
                     SegStartFreq = startFreqMHz,
@@ -227,13 +230,14 @@ namespace InterferenceInjectionTool
                     SegStopFreq = stopStepMHz
                 };
 
-                if (double.TryParse(line.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out double value))
+                if (double.TryParse(line, NumberStyles.Any, CultureInfo.InvariantCulture, out double value))
                 {
-                    signalData.PsdMeasurments = -value;
+                    double valueInDbm = 10 * Math.Log10(value);
+                    signalData.PsdMeasurments = valueInDbm;
                 }
 
                 signalDataInterList.Add(signalData);
-
+                signalDataInterListWithOffset.Add(signalData);
                 totalRecordsInter++;
                 maxPointsToLoad++;
             }
@@ -245,6 +249,10 @@ namespace InterferenceInjectionTool
         {
             if (signalDataList.Count == 0)
                 return;
+
+            //double rangePower = 100;
+            //double minPower = interfererOffsetDb - rangePower / 2;
+            //double maxPower = interfererOffsetDb + rangePower / 2;
 
             int pageCountRaw = (int)Math.Ceiling((double)signalDataList.Count / pageSize);
             currentPageRaw = Math.Max(0, Math.Min(currentPageRaw, pageCountRaw - 1));
@@ -449,9 +457,9 @@ namespace InterferenceInjectionTool
                 totalRecordsInter = int.Parse(vectorLenghtField.Text);
             }
 
-            double rangePower = 100;
-            double minPower = interfererOffsetDb - rangePower / 2;
-            double maxPower = interfererOffsetDb + rangePower / 2;
+            //double rangePower = 30;
+            //double minPower = interfererOffsetDb - rangePower / 2;
+            //double maxPower = interfererOffsetDb + rangePower / 2;
 
             if (signalDataInterList.Count == 0)
                 return;
@@ -462,7 +470,16 @@ namespace InterferenceInjectionTool
             int startIdx = currentPageInter * pageSize;
             int endIdx = Math.Min(startIdx + pageSize, totalRecordsInter);
 
-            var data = signalDataInterList;
+            List<SignalData> data;
+
+            if (signalDataInterList[0].PsdMeasurments != signalDataInterListWithOffset[0].PsdMeasurments)
+            {
+                data = signalDataInterListWithOffset;
+            }
+            else
+            {
+                data = signalDataInterList;
+            }
 
             data[0].SegStopFreq = data[0].SegStartFreq + spectrumWidthValue;
 
@@ -484,7 +501,7 @@ namespace InterferenceInjectionTool
                 int actualIndex = startIdx + i;
                 double freqMHz = data[0].SegStartFreq + actualIndex * freqStep;
 
-                double powerDb = ((double)data[actualIndex].PsdMeasurments) / (1e11);
+                double powerDb = ((double)data[actualIndex].PsdMeasurments);
 
                 interSeries.Points.Add(new DataPoint(freqMHz, powerDb));
 
@@ -520,8 +537,8 @@ namespace InterferenceInjectionTool
                     MajorGridlineColor = OxyColors.LightGray,
                     IsPanEnabled = false,
                     IsZoomEnabled = false,
-                    Minimum = minPower,
-                    Maximum = maxPower
+                    //Minimum = minPower,
+                    //Maximum = maxPower
                 });
 
                 model.InvalidatePlot(true);
@@ -634,6 +651,15 @@ namespace InterferenceInjectionTool
                 result = 0;
 
             interfererOffsetDb = result;
+
+            signalDataInterListWithOffset.Clear();
+            signalDataInterListWithOffset = signalDataInterList.Select(item => item.Clone()).ToList();
+
+            foreach (var power in signalDataInterListWithOffset)
+            {
+                power.PsdMeasurments = power.PsdMeasurments + result;
+            }
+
             UpdateInterferenceChart();
         }
 
@@ -692,20 +718,21 @@ namespace InterferenceInjectionTool
                 return;
 
             int cleanRowCount = signalDataList.Count;
-            int interferencePageCount = signalDataInterList.Count;
+            int interferencePageCount = signalDataInterListWithOffset.Count;
 
             for (int rowIndex = 0; rowIndex < cleanRowCount; rowIndex++)
             {
                 var cleanData = signalDataList[rowIndex];
 
                 SignalData interferenceData;
+
                 if (strategy == "RoundRobin")
                 {
-                    interferenceData = signalDataInterList[rowIndex % interferencePageCount];
+                    interferenceData = signalDataInterListWithOffset[rowIndex % interferencePageCount];
                 }
                 else if (strategy == "OneToAll")
                 {
-                    interferenceData = signalDataInterList[currentDataInterIndex];
+                    interferenceData = signalDataInterListWithOffset[currentDataInterIndex];
                 }
                 else
                 {
@@ -713,7 +740,7 @@ namespace InterferenceInjectionTool
                 }
 
                 int interCount = maxPointsToLoad;
-                double interStep = (double)(interferenceData.SegStopFreq - interferenceData.SegStartFreq) / interCount;
+                double interStep = (double)(interferenceData.SegStopFreq - interferenceData.SegStartFreq) / loadedPoints;
 
                 double[] interFreqs = new double[interCount];
                 double[] interPowerDb = new double[interCount];
@@ -721,7 +748,7 @@ namespace InterferenceInjectionTool
                 for (int i = 0; i < interCount; i++)
                 {
                     interFreqs[i] = interferenceData.SegStartFreq + i * interStep;
-                    interPowerDb[i] = ((double)signalDataInterList[i].PsdMeasurments) / 1e11;
+                    interPowerDb[i] = ((double)signalDataInterListWithOffset[i].PsdMeasurments);
                 }
 
                 int cleanCount = cleanData.PsdMeasurements.Length;
@@ -762,14 +789,14 @@ namespace InterferenceInjectionTool
 
         //    double freqStep = (double)(cleanData.SegStopFreq - cleanData.SegStartFreq) / (cleanCount - 1);
 
-        
+
         //    double[] cleanFreqs = new double[cleanCount];
         //    for (int i = 0; i < cleanCount; i++)
         //    {
         //        cleanFreqs[i] = cleanData.SegStartFreq + i * freqStep;
         //    }
 
-        
+
         //    int interCount = maxPointsToLoad;
         //    double interStep = (double)(interferenceData.SegStopFreq - interferenceData.SegStartFreq) / interCount;
 
@@ -782,14 +809,14 @@ namespace InterferenceInjectionTool
         //        interPowerDb[i] = ((double)signalDataInterList[i].PsdMeasurments) / (1e11);  // You may adjust scaling
         //    }
 
-        
+
         //    double[] interpInterPowerDb = new double[cleanCount];
         //    for (int i = 0; i < cleanCount; i++)
         //    {
         //        interpInterPowerDb[i] = InterpolateLinear(interFreqs, interPowerDb, cleanFreqs[i]);
         //    }
 
-        
+
         //    double[] combinedMilliwatts = new double[cleanCount];
         //    for (int i = 0; i < cleanCount; i++)
         //    {
@@ -798,10 +825,10 @@ namespace InterferenceInjectionTool
         //        combinedMilliwatts[i] = cleanMw + interMw;
         //    }
 
-        
+
         //    double[] combinedDbm = combinedMilliwatts.Select(mw => 10 * Math.Log10(mw)).ToArray();
 
-        
+
         //    var previewSeries = new LineSeries { Color = OxyColors.Red, StrokeThickness = 1.5 };
 
         //    for (int i = 0; i < combinedDbm.Length; i++) 
@@ -812,6 +839,77 @@ namespace InterferenceInjectionTool
         //    }
 
         //    PreviewSignalModel.Series.Add(previewSeries);
+        //    PreviewSignalModel.InvalidatePlot(true);
+        //}
+
+
+
+        //private void UpdatePreviewChart()
+        //{
+        //    if (signalDataList.Count == 0)
+        //        return;
+
+        //    var data = signalDataList[currentDataRawIndex];
+        //    if (data.PsdPreview == null || data.PsdPreview.Length == 0)
+        //        return;
+
+        //    int dataCount = data.PsdPreview.Length;
+        //    double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (dataCount - 1);
+
+        //    var combinedSeries = new LineSeries
+        //    {
+        //        Color = OxyColors.OrangeRed,
+        //        StrokeThickness = 1.5,
+        //        Title = "Combined Signal (Clean + Interference)"
+        //    };
+
+        //    for (int i = 0; i < dataCount; i++)
+        //    {
+        //        double freqMHz = data.SegStartFreq + i * freqStep;
+        //        double powerDb = data.PsdPreview[i];
+        //        combinedSeries.Points.Add(new DataPoint(freqMHz, powerDb));
+        //    }
+
+        //    PreviewSignalModel.Series.Clear();
+        //    PreviewSignalModel.Series.Add(combinedSeries);
+
+        //    double minFreq = data.SegStartFreq;
+        //    double maxFreq = data.SegStopFreq;
+
+        //    double minPower = signalDataList[currentDataRawIndex].PsdMeasurements.Min();
+        //    double maxPower = signalDataList[currentDataRawIndex].PsdMeasurements.Max();
+
+        //    double powerPadding = (maxPower - minPower) * 0.1;
+        //    if (powerPadding == 0) powerPadding = 1;
+
+        //    double freqPadding = (maxFreq - minFreq) * 0.09;
+        //    if (freqPadding == 0) freqPadding = 1;
+
+        //    PreviewSignalModel.Axes.Clear();
+        //    PreviewSignalModel.Axes.Add(new LinearAxis
+        //    {
+        //        Position = AxisPosition.Bottom,
+        //        Title = "Frequency(MHz)",
+        //        StringFormat = "F2",
+        //        MinorStep = 2,
+        //        MajorStep = 6,
+        //        Minimum = minFreq - freqPadding,
+        //        Maximum = maxFreq + freqPadding,
+        //        MajorGridlineStyle = LineStyle.Solid,
+        //        MajorGridlineColor = OxyColors.LightGray
+        //    });
+
+        //    PreviewSignalModel.Axes.Add(new LinearAxis
+        //    {
+        //        Position = AxisPosition.Left,
+        //        Title = "Power(dB)",
+        //        StringFormat = "F1",
+        //        Minimum = minPower - powerPadding,
+        //        Maximum = maxPower + powerPadding,
+        //        MajorGridlineStyle = LineStyle.Solid,
+        //        MajorGridlineColor = OxyColors.LightGray
+        //    });
+
         //    PreviewSignalModel.InvalidatePlot(true);
         //}
 
@@ -829,11 +927,27 @@ namespace InterferenceInjectionTool
             int dataCount = data.PsdPreview.Length;
             double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (dataCount - 1);
 
+            // 1. Add the CLEAN signal (blue line)
+            var rawSeries = new LineSeries
+            {
+                Color = OxyColors.Blue,
+                StrokeThickness = 1.0,
+                Title = "Clean Signal"
+            };
+
+            for (int i = 0; i < dataCount; i++)
+            {
+                double freqMHz = data.SegStartFreq + i * freqStep;
+                double powerDb = data.PsdMeasurements[i];
+                rawSeries.Points.Add(new DataPoint(freqMHz, powerDb));
+            }
+
+            // 2. Add the PREVIEW signal (orange line)
             var combinedSeries = new LineSeries
             {
                 Color = OxyColors.OrangeRed,
                 StrokeThickness = 1.5,
-                Title = "Combined Signal (Clean + Interference)"
+                Title = "Preview Signal"
             };
 
             for (int i = 0; i < dataCount; i++)
@@ -843,14 +957,52 @@ namespace InterferenceInjectionTool
                 combinedSeries.Points.Add(new DataPoint(freqMHz, powerDb));
             }
 
+            // 3. Compute frequency range where interference is significantly different
+            double thresholdDb = 5.0; // Adjust this threshold as needed
+            double? interStartFreq = null;
+            double? interStopFreq = null;
+
+            for (int i = 0; i < dataCount; i++)
+            {
+                double diff = Math.Abs(data.PsdPreview[i] - data.PsdMeasurements[i]);
+                if (diff > thresholdDb)
+                {
+                    double freqMHz = data.SegStartFreq + i * freqStep;
+                    if (interStartFreq == null)
+                        interStartFreq = freqMHz;
+                    interStopFreq = freqMHz;
+                }
+            }
+
+            // 4. Setup plot
             PreviewSignalModel.Series.Clear();
+            PreviewSignalModel.Annotations.Clear();
+
+            PreviewSignalModel.Series.Add(rawSeries);
             PreviewSignalModel.Series.Add(combinedSeries);
 
+            // 5. Add highlighted rectangle annotation
+            if (interStartFreq.HasValue && interStopFreq.HasValue)
+            {
+                var annotation = new RectangleAnnotation
+                {
+                    MinimumX = interStartFreq.Value,
+                    MaximumX = interStopFreq.Value,
+                    MinimumY = data.PsdMeasurements.Min() - 5,
+                    MaximumY = data.PsdMeasurements.Max() + 5,
+                    Fill = OxyColor.FromAColor(60, OxyColors.Orange),
+                    Stroke = OxyColors.OrangeRed,
+                    StrokeThickness = 1
+                };
+                PreviewSignalModel.Annotations.Add(annotation);
+            }
+
+            // Axes setup
             double minFreq = data.SegStartFreq;
             double maxFreq = data.SegStopFreq;
 
-            double minPower = signalDataList[currentDataRawIndex].PsdMeasurements.Min();
-            double maxPower = signalDataList[currentDataRawIndex].PsdMeasurements.Max();
+            double minPower = data.PsdMeasurements.Min();
+            double maxPower = data.PsdMeasurements.Max();
 
             double powerPadding = (maxPower - minPower) * 0.1;
             if (powerPadding == 0) powerPadding = 1;
@@ -889,9 +1041,6 @@ namespace InterferenceInjectionTool
 
 
 
-
-
-
         private double DbmToMilliwatt(double dbm)
         {
             return Math.Pow(10, dbm / 10.0);
@@ -914,6 +1063,67 @@ namespace InterferenceInjectionTool
             return y[^1];
         }
 
+        private void btnExportSignalWithInterference_Click(object sender, RoutedEventArgs e)
+        {
+            ExportInterferedSignalToCsv();
+        }
+
+        private void ExportInterferedSignalToCsv()
+        {
+            if (signalDataList.Count == 0)
+            {
+                MessageBox.Show("No data to export.");
+                return;
+            }
+
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "CSV files (*.csv)|*.csv";
+            saveFileDialog.Title = "Export Interfered Signal";
+            saveFileDialog.FileName = "interfered_signal.csv";
+
+            if (saveFileDialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            StringBuilder csv = new StringBuilder();
+
+            csv.AppendLine("SEG_START_FREQ      CENTRE_FREQ      SEG_STOP_FREQ    COUNT PSD_MEAS");
+
+            foreach (var data in signalDataList)
+            {
+                if (data.PsdPreview == null || data.PsdPreview.Length == 0)
+                    continue;
+
+                int count = data.PsdPreview.Length;
+                double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (count - 1);
+
+                csv.Append($"{data.SegStartFreq}{data.CentreFreq}{data.SegStopFreq}{data.PsdPreview.Length}[");
+
+                for (int i = 0; i < count; i++)
+                {
+                    double freqMHz = data.SegStartFreq + i * freqStep;
+                    double powerDb = data.PsdPreview[i];
+                    if (i == count - 1)
+                    {
+                        csv.Append($"{powerDb:F2}");
+                    }
+                    csv.Append($"{powerDb:F2}, ");
+                }
+
+                csv.AppendLine($"]");
+            }
+
+            try
+            {
+                File.WriteAllText(saveFileDialog.FileName, csv.ToString());
+                MessageBox.Show("Export completed successfully.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to export: " + ex.Message);
+            }
+        }
     }
 
     public class SignalData
@@ -925,5 +1135,19 @@ namespace InterferenceInjectionTool
         public double[] PsdMeasurements { get; set; }
         public double PsdMeasurments { get; set; }
         public double[] PsdPreview { get; set; }
+
+        public SignalData Clone()
+        {
+            return new SignalData 
+            { 
+                SegStartFreq = this.SegStartFreq,
+                CentreFreq = this.CentreFreq,
+                SegStopFreq = this.SegStopFreq,
+                Count = this.Count,
+                PsdMeasurements = this.PsdMeasurements,
+                PsdMeasurments = this.PsdMeasurments,
+                PsdPreview = this.PsdPreview
+            };
+        }
     }
 }
