@@ -52,13 +52,41 @@ namespace InterferenceInjectionTool
         public PlotModel InterferenceSignalModel { get; private set; }
         public PlotModel PreviewSignalModel { get; private set; }
 
+        public PlotModel ExportedSignalModel { get; private set; }
+
         public MainWindow()
         {
             InitializeComponent();
 
             SetupPlotModels();
 
+            SetUpExportedSignalModel();
+
             DataContext = this;
+        }
+
+        private void SetUpExportedSignalModel()
+        {
+            ExportedSignalModel = new PlotModel();
+
+            ExportedSignalModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Frequency(MHz)",
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray,
+                IsPanEnabled = false,
+                IsZoomEnabled = false
+            });
+            ExportedSignalModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "Power(dB)",
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray,
+                IsPanEnabled = false,
+                IsZoomEnabled = false
+            });
         }
 
         private void SetupPlotModels()
@@ -1116,24 +1144,21 @@ namespace InterferenceInjectionTool
                 int count = data.PsdPreview.Length;
                 double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (count - 1);
 
-                csv.Append($"{data.SegStartFreq}{data.CentreFreq}{data.SegStopFreq}{data.PsdPreview.Length}[");
+                csv.Append($"{data.SegStartFreq.ToString(CultureInfo.InvariantCulture)}\t" +
+                           $"{data.CentreFreq.ToString(CultureInfo.InvariantCulture)}\t" +
+                           $"{data.SegStopFreq.ToString(CultureInfo.InvariantCulture)}\t" +
+                           $"{data.PsdPreview.Length}\t[");
 
                 for (int i = 0; i < count; i++)
                 {
-                    double freqMHz = data.SegStartFreq + i * freqStep;
                     double powerDb = data.PsdPreview[i];
-                    if (i == count - 1)
-                    {
-                        csv.Append($"{powerDb:F2}");
-                    }
-                    else
-                    {
-                        csv.Append($"{powerDb:F2}, ");
-                    }
-                    
+                    csv.Append(powerDb.ToString("F2", CultureInfo.InvariantCulture));
+
+                    if (i != count - 1)
+                        csv.Append(", ");
                 }
 
-                csv.AppendLine($"]");
+                csv.AppendLine("]");
             }
 
             try
@@ -1146,6 +1171,321 @@ namespace InterferenceInjectionTool
                 MessageBox.Show("Failed to export: " + ex.Message);
             }
         }
+
+        private void btnAnalyseExport_Click(object sender, RoutedEventArgs e)
+        {
+            MainTabControl.SelectedItem = TabAnalyseExport;
+            btnAnalyseExport.Background = Brushes.LightGray;
+            btnAddInterference.Background = Brushes.Transparent;
+        }
+
+        private void btnAddInterference_Click(object sender, RoutedEventArgs e)
+        {
+            MainTabControl.SelectedItem = TabAddInterference;
+            btnAnalyseExport.Background = Brushes.Transparent;
+            btnAddInterference.Background = Brushes.LightGray;
+        }
+
+
+        /*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+        //Export & Analyse Tab
+
+        private string exportedSignalFileName;
+
+        private int currentDataExportIndex = 0;
+        private int totalRecordsExport = 0;
+
+        private int currentPageExport = 0;
+
+        private List<SignalData> signalDataExportList = new List<SignalData>();
+
+        private void ImportCSVExportedSignal(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+                Title = "Select signal data CSV file"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    LoadExportedSignalFile(openFileDialog.FileName);
+                    ExportedSignalFilePathText.Text = openFileDialog.FileName;
+
+                    exportedSignalFileName = openFileDialog.FileName;
+
+                    currentDataExportIndex = 0;
+                    UpdateExportedSignalChart();
+                    UpdateExportedSignalPageDisplay();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error loading file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    statusTextBlock.Text = "Error loading file";
+                }
+            }
+        }
+
+        private void LoadExportedSignalFile(string filePath)
+        {
+            signalDataExportList.Clear();
+
+            using (var reader = new StreamReader(filePath))
+            {
+                string header = reader.ReadLine();
+
+                while (!reader.EndOfStream)
+                {
+                    var line = reader.ReadLine();
+                    var values = line.Split('\t');
+
+                    if (values.Length >= 5)
+                    {
+                        var signalData = new SignalData
+                        {
+                            SegStartFreq = double.Parse(values[0], CultureInfo.InvariantCulture),
+                            CentreFreq = double.Parse(values[1], CultureInfo.InvariantCulture),
+                            SegStopFreq = double.Parse(values[2], CultureInfo.InvariantCulture),
+                            Count = int.Parse(values[3])
+                        };
+
+                        var psdString = values[4].Trim('[', ']');
+                        var psdValues = psdString.Split(',').Select(s => double.Parse(s.Trim(), CultureInfo.InvariantCulture)).ToArray();
+                        signalData.PsdMeasurements = psdValues;
+
+                        signalDataExportList.Add(signalData);
+                    }
+                }
+            }
+
+            totalRecordsExport = signalDataExportList.Count;
+
+            ComputeStatistics();
+        }
+
+        //private void UpdateExportedSignalChart()
+        //{
+        //    if (signalDataExportList.Count == 0)
+        //        return;
+
+        //    //double rangePower = 100;
+        //    //double minPower = interfererOffsetDb - rangePower / 2;
+        //    //double maxPower = interfererOffsetDb + rangePower / 2;
+
+        //    int pageCountExport = (int)Math.Ceiling((double)signalDataExportList.Count / pageSize);
+        //    currentPageExport = Math.Max(0, Math.Min(currentPageRaw, pageCountExport - 1));
+
+        //    var data = signalDataExportList[currentDataExportIndex];
+
+        //    int startIdx = currentPageExport * pageSize;
+        //    int endIdx = Math.Min(startIdx + pageSize, data.Count);
+
+        //    totalRecordsExport = data.PsdMeasurements.Length;
+        //    int visibleCount = endIdx - startIdx;
+
+        //    double freqStep = (double)(data.SegStopFreq - data.SegStartFreq) / (data.Count - 1);
+        //    ExportedSignalModel.Series.Clear();
+        //    var exportSeries = new LineSeries { Color = OxyColors.Blue, StrokeThickness = 1.5 };
+
+        //    double minPower = data.PsdMeasurements.Min();
+        //    double maxPower = data.PsdMeasurements.Max();
+
+        //    double minFreq = data.SegStartFreq;
+        //    double maxFreq = data.SegStopFreq;
+
+        //    for (int i = 0; i < data.PsdMeasurements.Length; i++)
+        //    {
+        //        double freqMHz = data.SegStartFreq + i * freqStep;
+        //        double powerDb = data.PsdMeasurements[i];
+        //        exportSeries.Points.Add(new DataPoint(freqMHz, powerDb));
+        //    }
+
+        //    double powerPadding = (maxPower - minPower) * 0.1;
+        //    if (powerPadding == 0) powerPadding = 1;
+
+        //    double freqPadding = (maxFreq - minFreq) * 0.09;
+        //    if (freqPadding == 0) freqPadding = 1;
+
+        //    ExportedSignalModel.Series.Add(exportSeries);
+
+        //    foreach (var model in new[] { ExportedSignalModel })
+        //    {
+        //        model.Axes.Clear();
+        //        model.Axes.Add(new LinearAxis
+        //        {
+        //            Position = AxisPosition.Bottom,
+        //            Title = "Frequency(MHz)",
+        //            StringFormat = "F2",
+        //            MinorStep = 2,
+        //            MajorStep = 6,
+        //            Minimum = (double)minFreq - freqPadding,
+        //            Maximum = (double)maxFreq + freqPadding,
+        //            MajorGridlineStyle = LineStyle.Solid,
+        //            MajorGridlineColor = OxyColors.LightGray,
+
+        //        });
+        //        model.Axes.Add(new LinearAxis
+        //        {
+        //            Position = AxisPosition.Left,
+        //            Title = "Power(dB)",
+        //            StringFormat = "F1",
+        //            Minimum = minPower - powerPadding,
+        //            Maximum = maxPower + powerPadding,
+        //            MajorGridlineStyle = LineStyle.Solid,
+        //            MajorGridlineColor = OxyColors.LightGray,
+
+        //        });
+        //        model.InvalidatePlot(true);
+        //    }
+        //}
+
+        private void UpdateExportedSignalChart()
+        {
+            if (signalDataExportList.Count == 0)
+                return;
+
+            var data = signalDataExportList[currentDataExportIndex];
+            double freqStep = (data.SegStopFreq - data.SegStartFreq) / (data.Count - 1);
+            int count = data.PsdMeasurements.Length;
+
+            ExportedSignalModel.Series.Clear();
+
+            // Raw signal
+            var rawSeries = new LineSeries { Title = "raw signal", Color = OxyColors.SteelBlue, StrokeThickness = 1.5 };
+            for (int i = 0; i < count; i++)
+            {
+                double freqMHz = data.SegStartFreq + i * freqStep;
+                rawSeries.Points.Add(new DataPoint(freqMHz, data.PsdMeasurements[i]));
+            }
+            ExportedSignalModel.Series.Add(rawSeries);
+
+            // Statistics series
+            if (ShowMaxCheckbox.IsChecked == true)
+            {
+                var maxSeries = new LineSeries { Title = "max", Color = OxyColors.Red, StrokeThickness = 1.5 };
+                for (int i = 0; i < count; i++)
+                {
+                    double freqMHz = data.SegStartFreq + i * freqStep;
+                    maxSeries.Points.Add(new DataPoint(freqMHz, maxValues[i]));
+                }
+                ExportedSignalModel.Series.Add(maxSeries);
+            }
+
+            if (ShowMinCheckbox.IsChecked == true)
+            {
+                var minSeries = new LineSeries { Title = "min", Color = OxyColors.Green, StrokeThickness = 1.5 };
+                for (int i = 0; i < count; i++)
+                {
+                    double freqMHz = data.SegStartFreq + i * freqStep;
+                    minSeries.Points.Add(new DataPoint(freqMHz, minValues[i]));
+                }
+                ExportedSignalModel.Series.Add(minSeries);
+            }
+
+            if (ShowAverageCheckbox.IsChecked == true)
+            {
+                var avgSeries = new LineSeries { Title = "average", Color = OxyColors.Orange, StrokeThickness = 1.5 };
+                for (int i = 0; i < count; i++)
+                {
+                    double freqMHz = data.SegStartFreq + i * freqStep;
+                    avgSeries.Points.Add(new DataPoint(freqMHz, meanValues[i]));
+                }
+                ExportedSignalModel.Series.Add(avgSeries);
+            }
+
+            ExportedSignalModel.Axes.Clear();
+            ExportedSignalModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Frequency(MHz)",
+                StringFormat = "F2",
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray,
+                Minimum = data.SegStartFreq,
+                Maximum = data.SegStopFreq
+            });
+
+            ExportedSignalModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "Power(dB)",
+                StringFormat = "F1",
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray
+            });
+
+            ExportedSignalModel.InvalidatePlot(true);
+        }
+
+
+        private void PreviousButtonExported_Click(object sender, RoutedEventArgs e)
+        {
+            if (currentDataExportIndex > 0)
+            {
+                currentPageExport--;
+                currentDataExportIndex--;
+                ComputeStatistics();
+                UpdateExportedSignalChart();
+                UpdateExportedSignalPageDisplay();
+            }
+        }
+
+        private void NextButtonExported_Click(object sender, RoutedEventArgs e)
+        {
+            int pageCountExported = (int)Math.Ceiling((double)signalDataExportList.Count / 1);
+            if (currentDataExportIndex < pageCountExported - 1)
+            {
+                currentPageExport++;
+                currentDataExportIndex++;
+                ComputeStatistics();
+                UpdateExportedSignalChart();
+                UpdateExportedSignalPageDisplay();
+            }
+        }
+
+        private void UpdateExportedSignalPageDisplay()
+        {
+            pagingExportedSignal.Text = $"{currentDataExportIndex + 1}/{signalDataExportList.Count}";
+        }
+
+        private double[] meanValues;
+        private double[] minValues;
+        private double[] maxValues;
+
+        private void ComputeStatistics()
+        {
+            if (signalDataExportList.Count == 0)
+                return;
+
+
+            if (meanValues != null)
+            {
+                Array.Clear(meanValues);
+                Array.Clear(minValues);
+                Array.Clear(maxValues);
+            }
+
+            int count = signalDataExportList[0].PsdMeasurements.Length;
+            meanValues = new double[count];
+            maxValues = new double[count];
+            minValues = new double[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                var valuesAtFreq = signalDataExportList.Select(s => s.PsdMeasurements[i]).ToArray();
+                meanValues[i] = valuesAtFreq.Average();
+                maxValues[i] = valuesAtFreq.Max();
+                minValues[i] = valuesAtFreq.Min();
+            }
+        }
+
+        private void StatisticsCheckboxChanged(object sender, RoutedEventArgs e)
+        {
+            UpdateExportedSignalChart();
+        }
+
     }
 
     public class SignalData
